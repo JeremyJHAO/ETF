@@ -1,0 +1,33 @@
+import requests
+import pandas as pd
+
+url = "https://www.twse.com.tw/zh/ETFortune/ajaxProductsResult"
+
+headers = {
+    'User-Agent': 'Mozilla/5.0',
+    'Referer': 'https://www.twse.com.tw/zh/ETFortune'
+}
+
+response = requests.get(url, headers=headers)
+data = response.json()
+
+records = data.get('data', [])
+
+df = pd.DataFrame(records)
+
+# stockNo轉文字保留0
+df['stockNo'] = df['stockNo'].astype(str).str.zfill(4)
+df['stockNo'] = df['stockNo'].apply(lambda x: f"'{x}")
+
+# 擷取需要欄位
+df = df[['stockNo', 'stockName', 'listingDate', 'indexName', 'totalAv']]
+df.columns = ['股票代號', 'ETF名稱', '上市日期', '標的指數', '資產規模(億元)']
+
+# 編號
+df.insert(0, '編號', range(1, len(df) + 1))
+
+print(f"共有 {len(df)} 筆資料")
+print(df.to_string(index=False))
+
+# CSV
+df.to_csv('twse_etfortune.csv', index=False, encoding='utf-8-sig') 
