@@ -1,0 +1,72 @@
+import requests
+import pandas as pd
+import yfinance as yf
+
+#台灣證交所ETF清單
+url = "https://www.twse.com.tw/zh/ETFortune/ajaxProductsResult"
+headers = {
+    'User-Agent': 'Mozilla/5.0',
+    'Referer': 'https://www.twse.com.tw/zh/ETFortune'
+}
+response = requests.get(url, headers=headers)
+data = response.json()
+records = data.get('data', [])
+df = pd.DataFrame(records)
+
+df['stockNo'] = df['stockNo'].astype(str).str.zfill(4)
+df['stockNo'] = df['stockNo'].apply(lambda x: f"{x}")
+df = df[['stockNo', 'stockName', 'listingDate', 'indexName', 'totalAv']]
+df.columns = ['股票代號', 'ETF名稱', '上市日期', '標的指數', '資產規模(億元)']
+df['資產規模(億元)'] = df['資產規模(億元)'].astype(str).str.replace(',', '').str.strip()
+df['上市日期'] = pd.to_datetime(df['上市日期'], format='%Y.%m.%d', errors='coerce')
+df['資產規模(億元)'] = pd.to_numeric(df['資產規模(億元)'], errors='coerce')
+
+#篩選2020年前上市&規模>50億
+df_filtered = df[
+    (df['上市日期'].dt.year < 2020) &
+    (df['資產規模(億元)'] > 50)
+].copy()
+df_filtered.insert(0, '編號', range(1, len(df_filtered) + 1))
+
+#yfinance
+def get_yf_ticker(stock_no):
+    return f"{stock_no}.TW"
+
+df_filtered['yfinance代碼'] = df_filtered['股票代號'].apply(get_yf_ticker)
+
+#含息總報酬率
+def compute_total_return(ticker, start_date="2020-01-01"):
+    try:
+        etf = yf.Ticker(ticker)
+        price_df = etf.history(start=start_date)[['Close']].dropna()
+        dividends = etf.dividends[etf.dividends.index >= start_date]
+        if price_df.empty:
+            return None
+        shares = 1.0
+        cash = 0.0
+        for date, dividend in dividends.items():
+            if date not in price_df.index:
+                continue
+            cash += dividend * shares
+            new_shares = cash / price_df.loc[date, 'Close']
+            shares += new_shares
+            cash = 0.0
+        start_price = price_df.iloc[0]['Close']
+        end_price = price_df.iloc[-1]['Close']
+        final_value = shares * end_price
+        total_return = final_value / start_price - 1
+        return round(total_return * 100, 2)
+    except Exception as e:
+        return None
+
+returns = []
+for _, row in df_filtered.iterrows():
+    ticker = row['yfinance代碼']
+    total_return = compute_total_return(ticker)
+    returns.append(total_return)
+df_filtered['2020起總報酬率(%)'] = returns
+
+#Excel
+output_cols = ['編號', '股票代號', 'ETF名稱', '上市日期', '標的指數', '資產規模(億元)', '2020起總報酬率(%)']
+df_filtered.to_excel("台股ETF_篩選_含息總報酬率_2020起.xlsx", index=False)
+print(f"篩選後共有 {len(df_filtered)} 筆資料")
