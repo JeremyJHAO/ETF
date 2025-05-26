@@ -68,5 +68,5 @@ df_filtered['2020起總報酬率(%)'] = returns
 
 #Excel
 output_cols = ['編號', '股票代號', 'ETF名稱', '上市日期', '標的指數', '資產規模(億元)', '2020起總報酬率(%)']
-df_filtered.to_excel("台股ETF_篩選_含息總報酬率_2020起.xlsx", index=False)
+df_filtered.to_csv("台股ETF_篩選_含息總報酬率_2020起.csv", index=False, encoding='utf-8-sig')
 print(f"篩選後共有 {len(df_filtered)} 筆資料")
