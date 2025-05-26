@@ -66,10 +66,11 @@ for _, row in df_filtered.iterrows():
     returns.append(total_return)
 df_filtered['2020起總報酬率(%)'] = returns
 
+df_filtered = df_filtered.sort_values(by='2020起總報酬率(%)', ascending=False)
 
 print(f"篩選後共有 {len(df_filtered)} 筆資料")
 print(df_filtered.to_string(index=False))
 
-#Excel
+# CSV
 output_cols = ['編號', '股票代號', 'ETF名稱', '上市日期', '標的指數', '資產規模(億元)', '2020起總報酬率(%)']
-df_filtered.to_csv("twse_etf_return.csv", index=False, encoding='utf-8-sig')
+df_filtered.to_csv("twse_etf_return.csv", columns=output_cols, index=False, encoding='utf-8-sig')
